@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Block Blast: For indrikkk</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@800&display=swap');
+
+        :root {
+            --bg-color: #4868e8; 
+            --grid-bg: #1c2340; 
+            --accent-yellow: #ffcc00;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'Nunito', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+
+        /* --- OVERLAY CANVAS UNTUK DRAGGING (Supaya blok di atas segalanya) --- */
+        #dragOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Klik tembus ke bawah */
+            z-index: 1000; /* Di atas segalanya */
+        }
+
+        /* --- HOME MENU --- */
+        #homeScreen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #4868e8 0%, #2c429e 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 500;
+            transition: opacity 0.5s;
+        }
+
+        .game-logo-img {
+            width: 85%;            
+            max-width: 350px;      
+            height: auto;
+            margin-bottom: 30px; 
+            transform: rotate(-5deg);
+            animation: floatLogo 3s ease-in-out infinite;
+            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.4)); 
+        }
+
+        .game-subtitle {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.8rem;
+            color: #ffffff;
+            margin-bottom: 15px; 
+            letter-spacing: 1px;
+            text-shadow: 0 4px 0 rgba(0,0,0,0.2), 0 0 10px rgba(255, 255, 255, 0.3);
+            transform: rotate(-2deg); 
+            animation: pulseText 2s infinite ease-in-out;
+        }
+
+        .play-btn {
+            background: linear-gradient(to bottom, #ffd700, #ffaa00);
+            border: none;
+            padding: 20px 80px;
+            border-radius: 50px;
+            font-family: 'Fredoka One';
+            font-size: 2rem;
+            color: #fff;
+            text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+            box-shadow: 0 8px 0 #c68500, 0 20px 30px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+            animation: pulseBtn 1.5s infinite;
+        }
+
+        .play-btn:active {
+            transform: translateY(8px);
+            box-shadow: 0 0 0 #c68500, inset 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* --- HEADER UI --- */
+        .header {
+            width: 100%;
+            max-width: 450px;
+            padding: 20px 20px 10px 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            opacity: 0; 
+            transition: opacity 1s;
+        }
+
+        .high-score-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            color: #ffd700;
+            font-family: 'Fredoka One', cursive;
+            text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+        }
+
+        .icon-svg {
+            width: 32px;
+            height: 32px;
+            filter: drop-shadow(0 2px 0 rgba(0,0,0,0.3));
+        }
+
+        .btn-home {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+        }
+        
+        .btn-home:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .current-score {
+            font-family: 'Fredoka One', cursive;
+            font-size: 4rem;
+            color: white;
+            text-shadow: 0 4px 0 rgba(0,0,0,0.1);
+            margin: 5px 0 20px 0;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+        /* --- GAME BOARD --- */
+        #game-container {
+            position: relative;
+            background: var(--grid-bg);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 15px 0 #13172e, 0 30px 40px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateY(50px);
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 6px;
+        }
+
+        /* --- TRAY (TEMPAT BLOK) DIPERBESAR --- */
+        .tray {
+            width: 100%;
+            max-width: 450px;
+            /* Tinggi diperbesar agar blok lebih lega */
+            height: 180px; 
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            /* Margin top auto mendorong tray ke bawah, tapi margin-bottom memberi jarak ke teks */
+            margin-top: auto; 
+            margin-bottom: 10px; 
+            opacity: 0;
+            transition: opacity 1s;
+            z-index: 10;
+        }
+
+        .tray-slot {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mini-block {
+            transform: scale(0.7);
+            filter: drop-shadow(0 5px 5px rgba(0,0,0,0.3));
+        }
+
+        /* --- FOOTER --- */
+        .footer-text {
+            font-family: 'Fredoka One', cursive;
+            font-size: 2rem;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 25px; /* Jarak dari bawah layar */
+            text-shadow: 0 3px 0 rgba(0,0,0,0.2);
+            letter-spacing: 1px;
+            opacity: 0;
+            transition: opacity 1s;
+            z-index: 10;
+        }
+
+        /* --- COMBO POPUP --- */
+        .combo-popup {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            pointer-events: none;
+            text-align: center;
+            z-index: 100;
+        }
+        .combo-popup.animate { animation: popCombo 1s forwards; }
+
+        .combo-label {
+            font-family: 'Fredoka One', cursive;
+            font-size: 2.5rem;
+            color: #fff;
+            background: linear-gradient(to bottom, #ff5e57, #ff3f34);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(255,255,255,0.8);
+            display: block;
+            line-height: 1;
+        }
+        .combo-val {
+            font-family: 'Fredoka One', cursive;
+            font-size: 4rem;
+            color: #ffa502;
+            text-shadow: 2px 2px 0 #fff;
+            display: block;
+            line-height: 1;
+        }
+
+        @keyframes popCombo {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            40% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            60% { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+            100% { transform: translate(-50%, -150%) scale(1.5); opacity: 0; }
+        }
+
+        @keyframes floatLogo {
+            0%, 100% { transform: rotate(-5deg) translateY(0); }
+            50% { transform: rotate(-5deg) translateY(-15px); }
+        }
+
+        @keyframes pulseBtn {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes pulseText {
+            0%, 100% { transform: rotate(-2deg) scale(1); }
+            50% { transform: rotate(-2deg) scale(1.05); }
+        }
+
+        /* --- MODALS --- */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(28, 35, 64, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            animation: fadeIn 0.5s;
+        }
+        .modal h1 { 
+            font-family: 'Fredoka One'; 
+            font-size: 3rem; 
+            color: white; 
+            margin-bottom: 10px; 
+            text-align: center;
+        }
+        
+        .btn-retry {
+            margin-top: 30px; 
+            padding: 15px 50px; 
+            font-size: 1.5rem; 
+            font-family: 'Fredoka One';
+            color: white; 
+            background: #4868e8; 
+            border: none; 
+            border-radius: 50px;
+            box-shadow: 0 5px 0 #2c429e; 
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .btn-retry:active { transform: translateY(5px); box-shadow: none; }
+
+        .btn-danger {
+            background: #ef4444;
+            box-shadow: 0 5px 0 #b91c1c;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .btn-group .btn-retry {
+            margin-top: 0;
+            padding: 15px 30px;
+        }
+
+        #finalScoreVal {
+            font-family: 'Fredoka One';
+            font-size: 5rem;
+            color: #ffd700; 
+            text-shadow: 2px 2px 0 #000;
+            margin: 10px 0;
+            display: block; 
+            z-index: 201; 
+        }
+
+        @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+    </style>
+</head>
+<body>
+
+    <!-- OVERLAY CANVAS -->
+    <canvas id="dragOverlay"></canvas>
+
+    <!-- HOME MENU -->
+    <div id="homeScreen">
+        <img src="https://plecupwyrpcmvyfdfpnq.supabase.co/storage/v1/object/public/Inddii/logo_indri_blockblast.png" class="game-logo-img" alt="Logo Block Blast">
+        <div class="game-subtitle">Khusus Indrikk</div>
+        <button class="play-btn" onclick="startGame()">PLAY ▶</button>
+    </div>
+
+    <!-- GAME UI -->
+    <div class="header" id="uiHeader">
+        <div class="high-score-box">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: #ffd700;">
+                <path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5M19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V18H19V19Z" />
+            </svg>
+            <span id="bestScore">0</span>
+        </div>
+        
+        <div class="btn-home" onclick="askToHome()">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+        </div>
+    </div>
+
+    <div class="current-score" id="uiScore">0</div>
+
+    <div id="game-container">
+        <canvas id="boardCanvas"></canvas>
+    </div>
+
+    <div class="tray" id="uiTray">
+        <div class="tray-slot" id="slot0"></div>
+        <div class="tray-slot" id="slot1"></div>
+        <div class="tray-slot" id="slot2"></div>
+    </div>
+
+    <div class="footer-text" id="footerMsg">HALO SAYANG!!</div>
+
+    <!-- Game Over Modal -->
+    <div class="modal" id="gameOverModal">
+        <h1>kalahh wleee</h1>
+        <div style="color: #889ce8; font-size: 1.2rem;">SCORE KAMUU</div>
+        <div id="finalScoreVal">0</div>
+        <button class="btn-retry" onclick="resetGame()">cus main lagi</button>
+    </div>
+
+    <!-- Exit Confirmation Modal -->
+    <div class="modal" id="exitModal">
+        <h1>Mau keluar sayang?</h1>
+        <div style="color: #889ce8; font-size: 1.2rem; text-align: center; max-width: 80%; margin-bottom: 20px;">
+            scorenya nanti ilangg, gapapa?
+        </div>
+        <div class="btn-group">
+            <button class="btn-retry" onclick="closeExitModal()">enggaa</button>
+            <button class="btn-retry btn-danger" onclick="confirmExit()">gapapaa</button>
+        </div>
+    </div>
+
+    <script>
+        // --- VARIABLES UNTUK TEXT SISTEM ---
+        let gameStartTime = 0; 
+        let lastPlacementTime = 0; 
+        let naggingInterval = null; 
+        let lastNagTime = 0; 
+
+        const BASE_MSGS = [
+            "wlee bingung yaa", 
+            "lamaa banget sii cemenn", 
+            "susahh banget apa, lamaa", 
+            "ih lamaa"
+        ];
+        
+        const RARE_MSG = "jangan lupa baless waa";
+        const LATE_GAME_MSG = "detik detik kalahh nih?";
+
+        // --- AUDIO ENGINE ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                const voices = window.speechSynthesis.getVoices();
+                const preferredVoice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-GB') && v.name.includes('Female')) || voices[0];
+                utterance.voice = preferredVoice;
+                utterance.pitch = 1.3; 
+                utterance.rate = 1.2;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function playSfx(type, multiplier = 1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'pickup') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0.3, now + 0.1);
+                gain.gain.linearRampToValueAtTime(0, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            } 
+            else if (type === 'place') {
+                osc.type = 'triangle'; 
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+                gain.gain.setValueAtTime(0.8, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            } 
+            else if (type === 'clear') {
+                playTone(440 * multiplier, 'sine', 0.3);
+                playTone(554.37 * multiplier, 'sine', 0.3);
+                playTone(659.25 * multiplier, 'sine', 0.3);
+            }
+            else if (type === 'gameover') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(50, now + 1);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.linearRampToValueAtTime(0, now + 1);
+                osc.start(now); osc.stop(now + 1);
+            }
+        }
+
+        function playTone(freq, type, duration) {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.type = type;
+            o.frequency.value = freq;
+            const now = audioCtx.currentTime;
+            g.gain.setValueAtTime(0.2, now);
+            g.gain.exponentialRampToValueAtTime(0.01, now + duration);
+            o.start(now);
+            o.stop(now + duration);
+        }
+
+        // --- NAGGING SYSTEM ---
+        function startNaggingSystem() {
+            if(naggingInterval) clearInterval(naggingInterval);
+            naggingInterval = setInterval(() => {
+                const now = Date.now();
+                const idleTime = now - lastPlacementTime;
+                const totalGameTime = now - gameStartTime;
+
+                if (idleTime > 20000) {
+                    if (now - lastNagTime > 6000) {
+                        lastNagTime = now;
+                        updateIdleText(totalGameTime);
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopNaggingSystem() {
+            if(naggingInterval) clearInterval(naggingInterval);
+        }
+
+        function resetIdleTimer() {
+            lastPlacementTime = Date.now();
+            document.getElementById('footerMsg').innerText = "SEMANGAT SAYANG!!";
+        }
+
+        function updateIdleText(totalGameTime) {
+            let options = [...BASE_MSGS]; 
+            
+            if (Math.random() < 0.15) {
+                const msg = RARE_MSG;
+                document.getElementById('footerMsg').innerText = msg.toUpperCase();
+                speak(msg);
+                return;
+            }
+
+            if (totalGameTime > 120000) {
+                options.push(LATE_GAME_MSG);
+                options.push(LATE_GAME_MSG); 
+            }
+
+            const idx = Math.floor(Math.random() * options.length);
+            const msg = options[idx];
+            document.getElementById('footerMsg').innerText = msg.toUpperCase();
+            speak(msg);
+        }
+
+
+        // --- GAME LOGIC ---
+        const BOARD_SIZE = 8;
+        const GAP = 2;
+        
+        const COLORS = [
+            null,
+            { base: '#3b82f6', dark: '#1d4ed8', light: '#93c5fd' }, // Blue
+            { base: '#ef4444', dark: '#b91c1c', light: '#fca5a5' }, // Red
+            { base: '#eab308', dark: '#a16207', light: '#fde047' }, // Yellow
+            { base: '#22c55e', dark: '#15803d', light: '#86efac' }, // Green
+            { base: '#a855f7', dark: '#7e22ce', light: '#d8b4fe' }, // Purple
+            { base: '#06b6d4', dark: '#0e7490', light: '#67e8f9' }, // Cyan
+            { base: '#f97316', dark: '#c2410c', light: '#fdba74' }  // Orange
+        ];
+
+        const SHAPES = [
+            [[1]], [[1,1]], [[1],[1]], [[1,1,1]], [[1],[1],[1]],
+            [[1,1],[1,1]], [[1,1,1],[0,1,0]], [[1,1,0],[0,1,1]],
+            [[0,1,1],[1,1,0]], [[1,0],[1,0],[1,1]], [[0,1],[0,1],[1,1]]
+        ];
+
+        let grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+        let score = 0;
+        let bestScore = localStorage.getItem('blockBlastBestUlt') || 0;
+        let trayBlocks = [null, null, null];
+        let draggingBlock = null;
+        let comboCount = 0;
+        let particles = []; 
+
+        const canvas = document.getElementById('boardCanvas');
+        const ctx = canvas.getContext('2d');
+        // Overlay Context
+        const dragCanvas = document.getElementById('dragOverlay');
+        const dragCtx = dragCanvas.getContext('2d');
+
+        let cellSize = 0;
+
+        function startGame() {
+            const home = document.getElementById('homeScreen');
+            home.style.display = 'flex'; 
+            home.style.opacity = 0;
+            setTimeout(() => home.style.display = 'none', 500);
+
+            document.getElementById('uiHeader').style.opacity = 1;
+            document.getElementById('uiScore').style.opacity = 1;
+            document.getElementById('uiTray').style.opacity = 1;
+            document.getElementById('footerMsg').style.opacity = 1;
+            
+            const gameCont = document.getElementById('game-container');
+            gameCont.style.opacity = 1;
+            gameCont.style.transform = 'translateY(0)';
+
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            
+            initGame();
+        }
+
+        function askToHome() {
+            document.getElementById('exitModal').style.display = 'flex';
+        }
+
+        function closeExitModal() {
+            document.getElementById('exitModal').style.display = 'none';
+        }
+
+        function confirmExit() {
+            closeExitModal();
+            backToHomeLogic();
+        }
+
+        function backToHomeLogic() {
+            stopNaggingSystem();
+
+            document.getElementById('uiHeader').style.opacity = 0;
+            document.getElementById('uiScore').style.opacity = 0;
+            document.getElementById('uiTray').style.opacity = 0;
+            document.getElementById('footerMsg').style.opacity = 0;
+            
+            const gameCont = document.getElementById('game-container');
+            gameCont.style.opacity = 0;
+            gameCont.style.transform = 'translateY(50px)';
+            
+            document.getElementById('gameOverModal').style.display = 'none';
+
+            const home = document.getElementById('homeScreen');
+            home.style.display = 'flex';
+            setTimeout(() => {
+                home.style.opacity = 1;
+            }, 100);
+
+            setTimeout(() => {
+                grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+                score = 0; comboCount = 0;
+                updateScore(0);
+                trayBlocks = [null, null, null];
+                document.getElementById('slot0').innerHTML = '';
+                document.getElementById('slot1').innerHTML = '';
+                document.getElementById('slot2').innerHTML = '';
+                drawBoard();
+            }, 500);
+        }
+
+        function initGame() {
+            resize();
+            window.addEventListener('resize', resize);
+            document.getElementById('bestScore').innerText = bestScore;
+            
+            gameStartTime = Date.now();
+            lastPlacementTime = Date.now();
+            startNaggingSystem();
+
+            if(trayBlocks.every(b => b === null)) refillTray();
+            setupInput();
+            requestAnimationFrame(renderLoop);
+            if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
+        }
+
+        function resize() {
+            const maxW = Math.min(window.innerWidth - 40, 400);
+            
+            // Set Board Canvas
+            canvas.width = maxW;
+            canvas.height = maxW;
+            canvas.style.width = maxW + 'px';
+            canvas.style.height = maxW + 'px';
+            
+            // Set Drag Overlay Canvas (Fullscreen)
+            dragCanvas.width = window.innerWidth;
+            dragCanvas.height = window.innerHeight;
+
+            cellSize = (canvas.width - (GAP * (BOARD_SIZE + 1))) / BOARD_SIZE;
+        }
+
+        function resetGame() {
+            grid = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+            score = 0; comboCount = 0;
+            updateScore(0);
+            document.getElementById('gameOverModal').style.display = 'none';
+            document.getElementById('footerMsg').innerText = "SEMANGAT BEYBIH!";
+            trayBlocks = [null, null, null];
+            document.getElementById('slot0').innerHTML = '';
+            document.getElementById('slot1').innerHTML = '';
+            document.getElementById('slot2').innerHTML = '';
+            
+            gameStartTime = Date.now();
+            lastPlacementTime = Date.now();
+            startNaggingSystem();
+
+            refillTray();
+        }
+
+        // --- DRAWING ---
+        function drawCell(ctx, x, y, size, colorIdx, alpha=1) {
+            if (colorIdx === 0) {
+                ctx.fillStyle = "#15192b";
+                ctx.fillRect(x, y, size, size);
+                ctx.strokeStyle = "#252b42";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, size, size);
+                return;
+            }
+            const c = COLORS[colorIdx];
+            ctx.globalAlpha = alpha;
+            const r = 4;
+            ctx.beginPath();
+            ctx.moveTo(x+r, y); ctx.lineTo(x+size-r, y);
+            ctx.quadraticCurveTo(x+size, y, x+size, y+r);
+            ctx.lineTo(x+size, y+size-r);
+            ctx.quadraticCurveTo(x+size, y+size, x+size-r, y+size);
+            ctx.lineTo(x+r, y+size);
+            ctx.quadraticCurveTo(x, y+size, x, y+size-r);
+            ctx.lineTo(x, y+r);
+            ctx.quadraticCurveTo(x, y, x+r, y);
+            ctx.closePath();
+            ctx.fillStyle = c.base; ctx.fill();
+
+            // Bevel
+            const b = size * 0.15;
+            ctx.fillStyle = c.light;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+size, y); ctx.lineTo(x+size-b, y+b); ctx.lineTo(x+b, y+b); ctx.lineTo(x+b, y+size-b); ctx.lineTo(x, y+size); ctx.fill();
+            ctx.fillStyle = c.dark;
+            ctx.beginPath(); ctx.moveTo(x+size, y+size); ctx.lineTo(x, y+size); ctx.lineTo(x+b, y+size-b); ctx.lineTo(x+size-b, y+size-b); ctx.lineTo(x+size-b, y+b); ctx.lineTo(x+size, y); ctx.fill();
+            ctx.fillStyle = c.base; ctx.fillRect(x+b, y+b, size-b*2, size-b*2);
+            ctx.globalAlpha = 1;
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for(let r=0; r<BOARD_SIZE; r++) {
+                for(let c=0; c<BOARD_SIZE; c++) {
+                    const x = GAP + c*(cellSize+GAP);
+                    const y = GAP + r*(cellSize+GAP);
+                    drawCell(ctx, x, y, cellSize, grid[r][c]);
+                }
+            }
+        }
+
+        function getSimulatedClears(shape, r0, c0) {
+            let tempGrid = grid.map(arr => [...arr]); 
+            
+            for(let r=0; r<shape.length; r++) {
+                for(let c=0; c<shape[0].length; c++) {
+                    if(shape[r][c]) {
+                        if(r0+r < BOARD_SIZE && c0+c < BOARD_SIZE) {
+                            tempGrid[r0+r][c0+c] = 1; 
+                        }
+                    }
+                }
+            }
+
+            let rows = [];
+            let cols = [];
+
+            for(let r=0; r<BOARD_SIZE; r++) {
+                if(tempGrid[r].every(val => val !== 0)) rows.push(r);
+            }
+
+            for(let c=0; c<BOARD_SIZE; c++) {
+                let full = true;
+                for(let r=0; r<BOARD_SIZE; r++) {
+                    if(tempGrid[r][c] === 0) { full = false; break; }
+                }
+                if(full) cols.push(c);
+            }
+
+            return { rows, cols };
+        }
+
+        function createDust(c, r) {
+            const x = GAP + c*(cellSize+GAP) + cellSize/2;
+            const y = GAP + r*(cellSize+GAP) + cellSize/2;
+            for(let i=0; i<5; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random()-0.5)*4,
+                    vy: (Math.random()-0.5)*4,
+                    life: 1, type: 'dust',
+                    size: Math.random()*5 + 2
+                });
+            }
+        }
+        
+        function createExplosion(c, r, colIdx) {
+            const x = GAP + c*(cellSize+GAP) + cellSize/2;
+            const y = GAP + r*(cellSize+GAP) + cellSize/2;
+            const cInfo = COLORS[colIdx];
+            for(let i=0; i<8; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random()-0.5)*10,
+                    vy: (Math.random()-0.5)*10,
+                    life: 1, type: 'spark',
+                    color: cInfo.light,
+                    size: Math.random()*8 + 3
+                });
+            }
+        }
+
+        function drawParticles() {
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+                p.life -= 0.05;
+                if(p.life <= 0) particles.splice(i,1);
+                else {
+                    ctx.globalAlpha = p.life;
+                    if(p.type === 'dust') {
+                        ctx.fillStyle = "rgba(255,255,255,0.5)";
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+                    } else {
+                        ctx.fillStyle = p.color;
+                        ctx.fillRect(p.x, p.y, p.size, p.size);
+                    }
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function refillTray() {
+            for(let i=0; i<3; i++) {
+                const slot = document.getElementById(`slot${i}`);
+                slot.innerHTML = '';
+            }
+            
+            if(trayBlocks.every(b => b === null)) {
+                for(let i=0; i<3; i++) {
+                    const shp = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                    const col = Math.floor(Math.random() * (COLORS.length - 1)) + 1;
+                    trayBlocks[i] = { shape: shp, color: col, x:0, y:0, slot:i };
+                    renderTrayBlock(i);
+                }
+                checkGameOver();
+            }
+        }
+
+        function renderTrayBlock(i) {
+            const slot = document.getElementById(`slot${i}`);
+            slot.innerHTML = '';
+            const b = trayBlocks[i];
+            if(!b) return;
+
+            const cvs = document.createElement('canvas');
+            const size = 25; 
+            cvs.width = b.shape[0].length * size;
+            cvs.height = b.shape.length * size;
+            cvs.className = 'mini-block';
+            
+            const cx = cvs.getContext('2d');
+            for(let r=0; r<b.shape.length; r++) {
+                for(let c=0; c<b.shape[0].length; c++) {
+                    if(b.shape[r][c]) drawCell(cx, c*size, r*size, size, b.color);
+                }
+            }
+
+            const startDrag = (e) => {
+                e.preventDefault();
+                playSfx('pickup');
+                b.dragging = true;
+                draggingBlock = b;
+                let cx = e.clientX || e.touches[0].clientX;
+                let cy = e.clientY || e.touches[0].clientY;
+                b.x = cx; b.y = cy;
+                cvs.style.opacity = '0';
+            };
+            cvs.onmousedown = startDrag; cvs.ontouchstart = startDrag;
+            slot.appendChild(cvs);
+        }
+
+        function setupInput() {
+            const move = (e) => {
+                if (!draggingBlock) return;
+                e.preventDefault();
+                draggingBlock.x = e.clientX || e.touches[0].clientX;
+                draggingBlock.y = e.clientY || e.touches[0].clientY;
+            };
+            
+            const end = (e) => {
+                if (!draggingBlock) return;
+                e.preventDefault();
+                
+                if (tryPlace()) {
+                    playSfx('place');
+                    resetIdleTimer(); // HANYA reset saat place sukses
+                    
+                    trayBlocks[draggingBlock.slot] = null;
+                    document.getElementById(`slot${draggingBlock.slot}`).innerHTML = '';
+                    checkLines();
+                    
+                    if (trayBlocks.every(b => b === null)) {
+                        refillTray();
+                    } else {
+                        checkGameOver();
+                    }
+                    
+                } else {
+                    const el = document.getElementById(`slot${draggingBlock.slot}`).querySelector('canvas');
+                    if (el) el.style.opacity = '1';
+                }
+                draggingBlock = null;
+            };
+            
+            window.addEventListener('mousemove', move);
+            window.addEventListener('touchmove', move, { passive: false });
+            window.addEventListener('mouseup', end);
+            window.addEventListener('touchend', end);
+        }
+
+        function tryPlace() {
+            const rect = canvas.getBoundingClientRect();
+            const rows = draggingBlock.shape.length;
+            const cols = draggingBlock.shape[0].length;
+            const offX = (cols * cellSize)/2;
+            const offY = (rows * cellSize)/2;
+            const dragYOffset = 70;
+
+            const mx = draggingBlock.x - rect.left - offX;
+            const my = draggingBlock.y - rect.top - offY - dragYOffset;
+
+            const cInd = Math.round(mx / (cellSize + GAP));
+            const rInd = Math.round(my / (cellSize + GAP));
+
+            if (canPlace(draggingBlock.shape, rInd, cInd)) {
+                place(draggingBlock.shape, rInd, cInd, draggingBlock.color);
+                return true;
+            }
+            return false;
+        }
+
+        function canPlace(shape, r0, c0) {
+            for(let r=0; r<shape.length; r++) {
+                for(let c=0; c<shape[0].length; c++) {
+                    if(shape[r][c]) {
+                        if(r0+r < 0 || r0+r >= BOARD_SIZE || c0+c < 0 || c0+c >= BOARD_SIZE) return false;
+                        if(grid[r0+r][c0+c] !== 0) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function place(shape, r0, c0, col) {
+            for(let r=0; r<shape.length; r++) {
+                for(let c=0; c<shape[0].length; c++) {
+                    if(shape[r][c]) {
+                        grid[r0+r][c0+c] = col;
+                        createDust(c0+c, r0+r); 
+                    }
+                }
+            }
+        }
+
+        function checkLines() {
+            let linesR = [], linesC = [];
+            for(let r=0; r<BOARD_SIZE; r++) if(grid[r].every(x => x !== 0)) linesR.push(r);
+            for(let c=0; c<BOARD_SIZE; c++) {
+                let full = true;
+                for(let r=0; r<BOARD_SIZE; r++) if(grid[r][c] === 0) full = false;
+                if(full) linesC.push(c);
+            }
+
+            const total = linesR.length + linesC.length;
+            if (total > 0) {
+                playSfx('clear', 1 + (comboCount * 0.2));
+                comboCount++;
+                
+                linesR.forEach(r => { 
+                    for(let c=0; c<BOARD_SIZE; c++) {
+                        createExplosion(c, r, grid[r][c]);
+                        grid[r][c] = 0; 
+                    }
+                });
+                linesC.forEach(c => { 
+                    for(let r=0; r<BOARD_SIZE; r++) {
+                        if(grid[r][c]!==0) createExplosion(c, r, grid[r][c]);
+                        grid[r][c] = 0; 
+                    }
+                });
+
+                let pts = total * 10;
+                if(comboCount > 1) pts *= comboCount;
+                updateScore(pts);
+
+                let reaction = "";
+                if(comboCount >= 2) reaction = "mantapp anak bu ihaa";
+                if(total >= 2) reaction = "hmzzz";
+                if(comboCount >= 4 || total >= 3) reaction = "keren banyakkk";
+                if(comboCount >= 6) reaction = "hebattt sayang nwahh";
+
+                if(reaction) {
+                    speak(reaction);
+                    showComboEffect(comboCount, reaction);
+                    document.getElementById('footerMsg').innerText = reaction.toUpperCase();
+                } else {
+                     document.getElementById('footerMsg').innerText = "haha kerennn dikit";
+                }
+
+            } else {
+                comboCount = 0;
+                document.getElementById('footerMsg').innerText = "Semangat sayang!!";
+            }
+        }
+
+        function showComboEffect(count, text) {
+            const container = document.getElementById('game-container');
+            const popup = document.createElement('div');
+            popup.className = 'combo-popup animate';
+            popup.innerHTML = `<div class="combo-label">COMBO</div><div class="combo-val">${count}</div>`;
+            container.appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+        }
+
+        function updateScore(pts) {
+            score += pts;
+            document.getElementById('uiScore').innerText = score;
+            if(score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('blockBlastBestUlt', bestScore);
+                document.getElementById('bestScore').innerText = bestScore;
+            }
+        }
+
+        function checkGameOver() {
+            let blocks = trayBlocks.filter(b => b !== null);
+            if(blocks.length === 0) return; 
+
+            let canMove = false;
+            for(let b of blocks) {
+                for(let r=0; r<BOARD_SIZE; r++) {
+                    for(let c=0; c<BOARD_SIZE; c++) {
+                        if(canPlace(b.shape, r, c)) { canMove = true; break; }
+                    }
+                    if(canMove) break;
+                }
+                if(canMove) break;
+            }
+
+            if(!canMove) {
+                stopNaggingSystem();
+                speak("yahh, kalahh");
+                playSfx('gameover');
+                setTimeout(() => {
+                    document.getElementById('finalScoreVal').innerText = score;
+                    document.getElementById('gameOverModal').style.display = 'flex';
+                }, 1000);
+            }
+        }
+
+        function renderLoop() {
+            // 1. Clear & Draw Board (Static)
+            drawBoard();
+            
+            // 2. Clear Overlay (Dynamic Dragging)
+            dragCtx.clearRect(0, 0, dragCanvas.width, dragCanvas.height);
+
+            // 3. Draw Particles on Board
+            drawParticles();
+
+            if(draggingBlock) {
+                const rect = canvas.getBoundingClientRect();
+                const offX = (draggingBlock.shape[0].length * cellSize)/2;
+                const offY = (draggingBlock.shape.length * cellSize)/2;
+                const dragYOffset = 70;
+                const mx = draggingBlock.x - rect.left - offX;
+                const my = draggingBlock.y - rect.top - offY - dragYOffset;
+                const cInd = Math.round(mx / (cellSize + GAP));
+                const rInd = Math.round(my / (cellSize + GAP));
+                
+                // Logic untuk menampilkan Ghost + Highlight Garis (Di Board Canvas)
+                if(canPlace(draggingBlock.shape, rInd, cInd)) {
+                    
+                    const clears = getSimulatedClears(draggingBlock.shape, rInd, cInd);
+                    
+                    if(clears.rows.length > 0 || clears.cols.length > 0) {
+                        ctx.fillStyle = "rgba(255, 215, 0, 0.4)"; 
+                        
+                        clears.rows.forEach(r => {
+                            const y = GAP + r*(cellSize+GAP);
+                            ctx.fillRect(GAP, y, canvas.width - (GAP*2), cellSize);
+                        });
+                        
+                        clears.cols.forEach(c => {
+                             const x = GAP + c*(cellSize+GAP);
+                             ctx.fillRect(x, GAP, cellSize, canvas.height - (GAP*2));
+                        });
+                    }
+
+                    ctx.globalAlpha = 0.3;
+                    for(let r=0; r<draggingBlock.shape.length; r++) {
+                        for(let c=0; c<draggingBlock.shape[0].length; c++) {
+                            if(draggingBlock.shape[r][c]) {
+                                const gx = GAP + (cInd+c)*(cellSize+GAP);
+                                const gy = GAP + (rInd+r)*(cellSize+GAP);
+                                ctx.fillStyle = "#ffffff"; ctx.fillRect(gx, gy, cellSize, cellSize);
+                            }
+                        }
+                    }
+                    ctx.globalAlpha = 1;
+                }
+
+                // DRAW BLOCK DI OVERLAY CANVAS (Supaya tidak ketutup)
+                dragCtx.save();
+                dragCtx.shadowColor = "rgba(0,0,0,0.5)"; dragCtx.shadowBlur = 15; dragCtx.shadowOffsetY = 15;
+                for(let r=0; r<draggingBlock.shape.length; r++) {
+                    for(let c=0; c<draggingBlock.shape[0].length; c++) {
+                        if(draggingBlock.shape[r][c]) {
+                            // Koordinat di overlay = posisi mouse - offset pusat block
+                            // (draggingBlock.x, y adalah clientX/Y dari event mouse)
+                            const bx = draggingBlock.x - offX + c*(cellSize+GAP);
+                            const by = draggingBlock.y - offY - dragYOffset + r*(cellSize+GAP);
+                            
+                            // Gunakan fungsi drawCell tapi ganti context ke dragCtx
+                            drawCell(dragCtx, bx-2, by-2, cellSize+4, draggingBlock.color, 0.9);
+                        }
+                    }
+                }
+                dragCtx.restore();
+            }
+            requestAnimationFrame(renderLoop);
+        }
+    </script>
+</body>
+</html>
